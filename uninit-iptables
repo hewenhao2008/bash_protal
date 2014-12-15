@@ -1,0 +1,16 @@
+#!/bin/sh
+
+IPTABLES=/usr/sbin/iptables
+
+$IPTABLES -t mangle -D PREROUTING -j internet
+$IPTABLES -t mangle -F internet
+$IPTABLES -t mangle -X internet
+
+$IPTABLES -t nat -D PREROUTING -m mark --mark 99 -j unkownnat
+$IPTABLES -t nat -F unkownnat
+$IPTABLES -t nat -X unkownnat
+
+$IPTABLES -D FORWARD -m mark --mark 0x63 -j unkownfilter
+$IPTABLES -t filter -F unkownfilter
+$IPTABLES -t filter -X unkownfilter
+
