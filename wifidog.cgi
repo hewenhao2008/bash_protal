@@ -70,11 +70,12 @@ elif [ $HTTP_HOST = "i.tgrass.com:2060" ]; then
 #	if [ ${REQUEST_URI:1:8} = "/app.gif" ]; then
 		#是否通过服务器来认证？暂时直接放行
 	#echo "$IPTABLES -t mangle  -I internet 1 -m mac --mac-source $mac -j RETURN" > /tmp/1.log
-	$IPTABLES -t mangle  -I internet 1 -s $REMOTE_ADDR -j RETURN
+	$IPTABLES -t mangle -A chain_outgoing -s $REMOTE_ADDR -j MARK --set-mark 0x01
+	$IPTABLES -t mangle -A chain_incoming -d $REMOTE_ADDR -j ACCEPT
+
 	echo "Content-type: text/html"
 	echo ""
 	echo "{success:true}"
-	echo "$IPTABLES -t mangle  -I internet 1 -s $REMOTE_ADDR -j RETURN"
 #	fi
 else
 	num=$(grep $mac /tmp/validateuser.log | wc -l)
