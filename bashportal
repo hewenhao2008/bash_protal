@@ -4,14 +4,21 @@
 
 # Date    : 2014-12-15
 # Version : 1.0
+# Author  : czhongm <czhongm@gmail.com>
 
 IPTABLES=/usr/sbin/iptables
 INTERFACE=eth0
 EXT_INTERFACE=rmnet0
 IP=$(ifconfig $INTERFACE | grep inet | cut -d : -f 2 | cut -d " " -f 1)
 AUTHSERVER="218.244.131.138"
+TRUSTIP_FILE=/usr/tgrass/trustip
+VALID_USER_LOG=/tmp/validateuser.log
+KNOWN_USER_LOG=/tmp/knownuser.log
 
 init_rules(){
+	#清空用到的文件
+	:> $VALID_USER_LOG
+	:> $KNOWN_USER_LOG
 	#mangle表规则
 	$IPTABLES -t mangle -N chain_trusted
 	$IPTABLES -t mangle -N chain_outgoing
@@ -35,21 +42,20 @@ init_rules(){
 	$IPTABLES -t nat -A chain_outgoing -j chain_wifi_to_internet
 	$IPTABLES -t nat -A chain_wifi_to_internet -m mark --mark 0x01 -j ACCEPT
 	$IPTABLES -t nat -A chain_wifi_to_internet -m mark --mark 0x02 -j chain_validate
+	#app会访问i.tgrass.com的2060端口
+	$IPTABLES -t nat -A chain_validate -p tcp --dport 2060 -d $AUTHSERVER -j REDIRECT --to-ports 80
 	#TODO:这里添加认证中需要放行的ip地址
 	#$IPTABLES -t nat -A chain_validate -d xxx.xxx.xxx.xxx -j ACCEPT
 
-
 	$IPTABLES -t nat -A chain_wifi_to_internet -j chain_unknow
-	#app会访问i.tgrass.com的2060端口
-	$IPTABLES -t nat -A chain_unknow -p tcp --dport 2060 -d $AUTHSERVER -j REDIRECT --to-ports 80
 
 	$IPTABLES -t nat -A chain_unknow -j chain_authserver
 	$IPTABLES -t nat -A chain_authserver -d $AUTHSERVER -j ACCEPT
 	$IPTABLES -t nat -A chain_unknow -j chain_global
-	#TODO:放行设定的IP地址
 	#$IPTABLES -t nat -A chain_global -d xxx.xxx.xxx.xxx -j ACCEPT
+
 	
-	$IPTABLES -t nat -A chain_unknow  -p tcp --dport 80 -j REDIRECT --to-ports 80
+	$IPTABLES -t nat -A chain_unknow -p tcp --dport 80 -j REDIRECT --to-ports 80
 
 	$IPTABLES -t filter -N chain_wifi_to_internet
 	$IPTABLES -t filter -N chain_global
@@ -78,6 +84,17 @@ init_rules(){
 	$IPTABLES -t filter -A chain_unknow -p tcp --dport 67 -j ACCEPT
 	$IPTABLES -t filter -A chain_unknow -p udp --dport 67 -j ACCEPT
 	$IPTABLES -t filter -A chain_unknow -j REJECT --reject-with icmp-port-unreachable
+
+	#从文件中读入放行设定的IP地址
+	while read LINE
+	do
+		ip=$(echo $LINE | awk -F" " '{print $1}')
+		#if [ valid_ip $ip ]; then
+			$IPTABLES -t nat -A chain_global -d $ip -j ACCEPT
+			$IPTABLES -t filter -A chain_global -d $ip -j ACCEPT
+		#fi
+	done < $TRUSTIP_FILE
+	
 
 }
 
