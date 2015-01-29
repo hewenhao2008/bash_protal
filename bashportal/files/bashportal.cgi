@@ -8,19 +8,8 @@
 # Version : 1.0
 # Author  : czhongm <czhongm@gmail.com>
 
-IPTABLES=/usr/sbin/iptables
-CFG="default"
-PORTAL_PORT="2060"
-PORTAL_URL="http://auth.tgrass.com/index.action?"
-AUTH_URL="http://auth.tgrass.com/auth.action?"
-WELCOME_URL="http://auth.tgrass.com/welcome.action?"
-VALID_USER_LOG="/tmp/val_${CFG}.log"
-KNOWN_USER_LOG="/tmp/known_${CFG}.log"
-interface="br-lan"
+. ./env.sh
 
-gw_address=$(ifconfig $interface | grep inet | cut -d : -f 2 | cut -d " " -f 1)
-gw_mac=$(ifconfig $interface | grep HWaddr | awk -F " " '{ print $5 }')
-gw_id=$(echo $gw_mac | awk -F ":" '{ print tolower($1$2$3$4$5$6) }')
 user_ip=$REMOTE_ADDR
 user_mac=$(cat /proc/net/arp | grep $user_ip | awk -F " " '{ print $4 }' )
 timestamp=$(date +%s)
@@ -35,13 +24,13 @@ apple_captive_resp(){
 #重定向到初始页面
 redirect_index(){
 	echo "Status: 302 Moved Temporarily"
-	echo "Location: ${PORTAL_URL}gw_address=${gw_address}&gw_port=${PORTAL_PORT}&gw_id=${gw_id}&mac=${user_mac}&url="
+	echo "Location: ${PORTAL_URL}gw_address=${GW_ADDRESS}&gw_port=${PORTAL_PORT}&gw_id=${GW_ID}&mac=${user_mac}&url="
 	echo ""
 }
 
 redirect_welcome(){
 	echo "Status: 302 Moved Temporarily"
-	echo "Location: ${WELCOME_URL}gw_address=${gw_address}&gw_port=${PORTAL_PORT}&gw_id=${gw_id}&mac=${user_mac}&url="
+	echo "Location: ${WELCOME_URL}gw_address=${GW_ADDRESS}&gw_port=${PORTAL_PORT}&gw_id=${GW_ID}&mac=${user_mac}&url="
 	echo ""
 }
 
@@ -124,7 +113,7 @@ clear_known_flag(){
 
 proc_iptables(){
 #远程验证是否允许访问
-	local authret=$(wget -q -U "${HTTP_USER_AGENT}" -O - "${AUTH_URL}stage=login&gw_address=${gw_address}&gw_port=${PORTAL_PORT}&gw_id=${gw_id}&mac=${user_mac}" | grep "Auth:" | awk -F " " '{print $2}')
+	local authret=$(wget -q -U "${HTTP_USER_AGENT}" -O - "${AUTH_URL}stage=login&gw_address=${GW_ADDRESS}&gw_port=${PORTAL_PORT}&gw_id=${GW_ID}&mac=${user_mac}" | grep "Auth:" | awk -F " " '{print $2}')
 	if [ $authret -eq 5 ]; then
 		#服务器返回认证中
 		clear_known_flag $user_ip $user_mac
@@ -148,7 +137,7 @@ if [ $REQUEST_URI = "/checkimg.png" ]; then
 	set_valid_flag $user_ip $user_mac
 elif [ $HTTP_HOST = "i.tgrass.com:${PORTAL_PORT}" ]; then
 	proc_iptables
-elif [ $HTTP_HOST = "${gw_address}:${PORTAL_PORT}" ]; then
+elif [ $HTTP_HOST = "${GW_ADDRESS}:${PORTAL_PORT}" ]; then
 	proc_iptables
 else
 	if [ -f $VALID_USER_LOG ]; then

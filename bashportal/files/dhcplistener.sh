@@ -10,5 +10,19 @@
 
 IPTABLES=/usr/sbin/iptables
 
+. /tgrass/libportal.sh
+
+action=$1
+mac=$2
+ip=$3
+hostname=$4
+
+if [ $action = "add" -o $action = "old" ]; then
+	
+elif [ $action = "del" ]; then
+	clear_valid_flag $ip $mac
+	clear_known_flag $ip $mac
+fi
+
 exit 0
         
