@@ -137,11 +137,13 @@ start_portal_instance()
 	local cfg="$1"
 	local port
 	
+	mkdir -p "/tmp/portal/$cfg/www"
+	
 	procd_open_instance
 	procd_set_param respawn
 	procd_set_param command "$UHTTPD_BIN" -f
 	
-	procd_append_param command "-h" "/tmp/portal/$cfg"
+	procd_append_param command "-h" "/tmp/portal/$cfg/www"
 	procd_append_param command "-r" "tgrass"
 	procd_append_param command "-x" "/cgi-bin"
 	procd_append_param command "-t" 60

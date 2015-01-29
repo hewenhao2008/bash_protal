@@ -7,7 +7,6 @@
 # Version : 1.0
 # Author  : czhongm <czhongm@gmail.com>
 
-
 #设置用户为认证中状态
 set_valid_flag(){
 	local ip=$1
@@ -79,3 +78,23 @@ clear_known_flag(){
 		sed -i "/$mac/d" $KNOWN_USER_LOG
 	fi
 }
+
+#远程验证是否允许访问
+proc_iptables(){
+	local ip=$1
+	local mac=$2
+	local authret=$(wget -q -U "${HTTP_USER_AGENT}" -O - "${AUTH_URL}stage=login&gw_address=${GW_ADDRESS}&gw_port=${PORTAL_PORT}&gw_id=${GW_ID}&mac=${mac}" | grep "Auth:" | awk -F " " '{print $2}')
+	if [ $authret -eq 5 ]; then
+		#服务器返回认证中
+		clear_known_flag $ip $mac
+		set_valid_flag $ip $mac
+	elif [ $authret -eq 1 ]; then
+		#服务器返回认证通过
+		clear_valid_flag $ip $mac
+		set_known_flag $ip $mac
+	else
+		clear_valid_flag $ip $mac
+		clear_known_flag $ip $mac
+	fi
+}
+
