@@ -16,13 +16,15 @@ UHTTPD_BIN="/usr/sbin/uhttpd"
 
 start_instance(){
 	local cfg="$1"
-	local interface extinterface trustfile validfile ip validlog knownlog mac portalport
+	local interface extinterface trustfile validfile trustmac ip validlog knownlog mac portalport
 	local portal_url auth_url welcome_url
 	local gw_address gw_mac gw_id
+	local LINE
 	config_get interface "$cfg" interface 'br-lan'
 	config_get extinterface "$cfg" extinterface 'eth0.2'
 	config_get trustfile "$cfg" trustfile
 	config_get validfile "$cfg" validfile
+	config_get trustmac	"cfg"	trustmac
 	config_get portalport "$cfg" port "2060"
 	config_get portal_url "$cfg" index_url
 	config_get auth_url "$cfg" auth_url
@@ -35,8 +37,8 @@ start_instance(){
 	gw_mac=$(ifconfig $interface | grep HWaddr | awk -F " " '{ print $5 }')
 	gw_id=$(echo $gw_mac | awk -F ":" '{ print tolower($1$2$3$4$5$6) }')
 	
+#生成所需文件	
 	mkdir -p /tmp/portal/$cfg/www/cgi-bin
-	ln -s /tgrass/portal/bashportal.cgi /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
 	
 	cat > /tmp/portal/$cfg/env.sh <<EOF
 #!/bin/sh
@@ -58,8 +60,8 @@ GW_ID="$gw_id"
 EOF
 
 	cat /tmp/portal/$cfg/env.sh >> /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
-	cat /tgrass/portal/libportal.sh >> /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
-	cat /tgrass/portal/bashportal.cgi >> /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
+	grep -Ev "^$|^#.*$" /tgrass/portal/libportal.sh >> /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
+	grep -Ev "^$|^#.*$" /tgrass/portal/bashportal.cgi >> /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
 	chmod 777 /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
 	
 	#mangle表规则
@@ -94,7 +96,6 @@ EOF
 	#$IPTABLES -t nat -A bp_${cfg}_authserver -d $AUTHSERVER -j ACCEPT
 	$IPTABLES -t nat -A bp_${cfg}_unknow -j bp_${cfg}_global
 	#$IPTABLES -t nat -A bp_${cfg}_global -d xxx.xxx.xxx.xxx -j ACCEPT
-
 	
 	$IPTABLES -t nat -A bp_${cfg}_unknow -p tcp --dport 80 -j REDIRECT --to-ports $portalport
 
@@ -126,31 +127,42 @@ EOF
 	$IPTABLES -t filter -A bp_${cfg}_unknow -p udp --dport 67 -j ACCEPT
 	$IPTABLES -t filter -A bp_${cfg}_unknow -j REJECT --reject-with icmp-port-unreachable
 	
-	if [ -n $trustfile ]; then
+	if [ ! -z $trustmac ]; then
+		if [ -f $trustmac ]; then
+			#从文件中读入放行设定的MAC地址，忽略注释行和空行
+			grep -Ev "^$|^#.*$" $trustmac | while read LINE
+			do
+				mac=$(echo $LINE | awk -F" " '{print $1}')
+				$IPTABLES -t mangle -A bp_${cfg}_trusted -m mac --mac-source $mac -j MARK --set-mark 0x01
+			done
+		fi
+	fi
+	
+	if [ ! -z $trustfile ]; then
 		if [ -f $trustfile ]; then
-			#从文件中读入放行设定的IP地址
-			while read LINE
+			#从文件中读入放行设定的IP地址，忽略注释行和空行
+			grep -Ev "^$|^#.*$" $trustfile | while read LINE
 			do
 				ip=$(echo $LINE | awk -F" " '{print $1}')
 				#if [ valid_ip $ip ]; then
 					$IPTABLES -t nat -A bp_${cfg}_global -d $ip -j ACCEPT
 					$IPTABLES -t filter -A bp_${cfg}_global -d $ip -j ACCEPT
 				#fi
-			done < $trustfile
+			done
 		fi
 	fi
 	
-	if [ -n $validfile ]; then
+	if [ ! -z $validfile ]; then
 		if [ -f $validfile ]; then
-			#从文件中读入放行设定的IP地址
-			while read LINE
+			#从文件中读入放行设定的IP地址，忽略注释行和空行
+			grep -Ev "^$|^#.*$" $validfile | while read LINE
 			do
 				ip=$(echo $LINE | awk -F" " '{print $1}')
 				#if [ valid_ip $ip ]; then
 					$IPTABLES -t nat -A bp_${cfg}_validate -d $ip -j ACCEPT
 					$IPTABLES -t filter -A bp_${cfg}_validate -d $ip -j ACCEPT
 				#fi
-			done < $validfile
+			done
 		fi
 	fi
 

@@ -33,6 +33,7 @@ define Package/BashPortal/install
 	$(INSTALL_DIR) $(1)/tgrass/portal
 	$(INSTALL_BIN) ./files/bashportal.cgi $(1)/tgrass/portal/bashportal.cgi
 	$(INSTALL_BIN) ./files/libportal.sh $(1)/tgrass/portal/libportal.sh
+	$(INSTALL_BIN) ./files/dhcplistener.sh $(1)/tgrass/dhcplistener.sh
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_DATA) ./files/bashportal.conf $(1)/etc/config/bashportal
 	$(INSTALL_DIR) $(1)/etc/init.d
@@ -42,10 +43,8 @@ endef
 define Package/BashPortal/postinst
 #!/bin/sh
 
-if [ "$$(uci -q get uhttpd.main.ubus_prefix)" != "/ubus" ]; then
-	uci set uhttpd.main.ubus_prefix="/ubus"
-	uci commit uhttpd
-fi
+uci set dhcp.@dnsmasq[0].dhcpscript="/tgrass/dhcplistener.sh"
+uci commit dhcp
 
 exit 0
 endef

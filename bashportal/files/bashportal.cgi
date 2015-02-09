@@ -30,12 +30,12 @@ portal_show(){
 
 #/checkimg.png 是一个嵌入在portal页里的元素，用来保证portal页已经弹出过了
 if [ $REQUEST_URI = "/checkimg.png" ]; then
-	set_valid_flag $user_ip $user_mac
+	set_valid_flag $user_mac $user_ip
 elif [ $HTTP_HOST = "i.tgrass.com:${PORTAL_PORT}" ]; then
-	proc_iptables $user_ip $user_mac
+	proc_iptables $user_mac $user_ip
 	apple_captive_resp
 elif [ $HTTP_HOST = "${GW_ADDRESS}:${PORTAL_PORT}" ]; then
-	proc_iptables $user_ip $user_mac
+	proc_iptables $user_mac $user_ip
 	apple_captive_resp
 else
 	if [ -f $VALID_USER_LOG ]; then

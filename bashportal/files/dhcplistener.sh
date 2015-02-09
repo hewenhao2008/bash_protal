@@ -23,14 +23,14 @@ auth_client(){
 	local portal_url auth_url welcome_url
 	local gw_address gw_mac gw_id
 	config_get interface "$cfg" interface
-	if [ $DNSMASQ_INTERFACE = $interface ]; then
+	if [ "$DNSMASQ_INTERFACE" = "$interface" ]; then
 		. /tmp/portal/$cfg/env.sh
 		. /tgrass/portal/libportal.sh
 		if [ $action = "add" -o $action = "old" ]; then
-			proc_iptables $ip $mac
+			proc_iptables $mac $ip $hostname
 		elif [ $action = "del" ]; then
-			clear_valid_flag $ip $mac
-			clear_known_flag $ip $mac
+			clear_valid_flag $mac
+			clear_known_flag $mac
 		fi
 	fi
 }
