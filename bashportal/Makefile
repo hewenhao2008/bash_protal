@@ -18,7 +18,7 @@ define Package/BashPortal
   SECTION:=BashPortal
   CATEGORY:=TGrass
   TITLE:=Bash Portal
-  DEPENDS:=+iptables-mod-extra +iptables-mod-ipopt +kmod-ipt-nat +iptables-mod-nat-extra +uhttpd +uhttpd-mod-ubus
+  DEPENDS:=+iptables-mod-extra +iptables-mod-ipopt +kmod-ipt-nat +iptables-mod-nat-extra +uhttpd
 endef
 
 define Package/BashPortal/description
@@ -30,20 +30,16 @@ define Package/BashPortal/conffiles
 endef
 
 define Package/BashPortal/install
-	$(INSTALL_DIR) $(1)/www
-	$(CP) ./htdocs/* $(1)/www/
-	$(INSTALL_DIR) $(1)/usr/share/rpcd
-	$(CP) ./share/* $(1)/usr/share/rpcd/
-	$(INSTALL_DIR) $(1)/usr/lib/rpcd
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/rpcd/luci2.so $(1)/usr/lib/rpcd/
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/rpcd/bwmon.so $(1)/usr/lib/rpcd/
-	$(INSTALL_DIR) $(1)/usr/libexec $(1)/www/cgi-bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/io/luci2-io $(1)/usr/libexec/
-	$(LN) /usr/libexec/luci2-io $(1)/www/cgi-bin/luci-upload
-	$(LN) /usr/libexec/luci2-io $(1)/www/cgi-bin/luci-backup
+	$(INSTALL_DIR) $(1)/tgrass/portal
+	$(INSTALL_BIN) ./files/bashportal.cgi $(1)/tgrass/portal/bashportal.cgi
+	$(INSTALL_BIN) ./files/libportal.sh $(1)/tgrass/portal/libportal.sh
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_DATA) ./files/bashportal.conf $(1)/etc/config/bashportal
+	$(INSTALL_DIR) $(1)/etc/init.d
+    $(INSTALL_BIN) ./files/bashportal.init $(1)/etc/init.d/bashportal
 endef
 
-define Package/luci2/postinst
+define Package/BashPortal/postinst
 #!/bin/sh
 
 if [ "$$(uci -q get uhttpd.main.ubus_prefix)" != "/ubus" ]; then

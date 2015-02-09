@@ -1,95 +1,83 @@
 #!/bin/sh
 #
-# ¹«¹²º¯Êı
+# å…¬å…±å‡½æ•°
 #
 
 # Date    : 2014-12-15
 # Version : 1.0
 # Author  : czhongm <czhongm@gmail.com>
 
-#ÉèÖÃÓÃ»§ÎªÈÏÖ¤ÖĞ×´Ì¬
-set_valid_flag(){
-	local ip=$1
-	local mac=$2
-	local recflag=0
-	if [ -f $VALID_USER_LOG ]; then
-		local num=$(grep $mac $VALID_USER_LOG | wc -l)
-		if [ $num -ge 1 ]; then
-			recflag=1
-		fi
-	fi
-	if [ $recflag -eq 0 ]; then
-		$IPTABLES -t mangle -A bp_${CFG}_outgoing -s $ip -m mac --mac-source $mac -j MARK --set-mark 0x02
-		$IPTABLES -t mangle -A bp_${CFG}_incoming -d $ip -j ACCEPT
-		echo "$mac $ip $timestamp" >> $VALID_USER_LOG
-	fi
-}
-
-#Çå³ıÈÏÖ¤ÖĞ±êÖ¾
+#æ¸…é™¤è®¤è¯ä¸­æ ‡å¿—
 clear_valid_flag(){
 	local ip=$1
 	local mac=$2
-	local recflag=0
+	local LINE i_mac i_ip
 	if [ -f $VALID_USER_LOG ]; then
-		local num=$(grep $mac $VALID_USER_LOG | wc -l)
-		if [ $num -ge 1 ]; then
-			recflag=1
-		fi
-	fi
-	if [ $recflag -eq 1 ]; then
-		$IPTABLES -t mangle -D bp_${CFG}_outgoing -s $ip -m mac --mac-source $mac -j MARK --set-mark 0x02
-		$IPTABLES -t mangle -D bp_${CFG}_incoming -d $ip -j ACCEPT
+		while read LINE
+		do
+			i_mac=$(echo $LINE | awk -F" " '{print $1}')
+			i_ip=$(echo $LINE | awk -F" " '{print $2}')
+			if [ $i_mac = $mac ]; then
+				$IPTABLES -t mangle -D bp_${CFG}_outgoing -s $i_ip -m mac --mac-source $i_mac -j MARK --set-mark 0x02
+				$IPTABLES -t mangle -D bp_${CFG}_incoming -d $i_ip -j ACCEPT
+			fi
+		done < $VALID_USER_LOG
 		sed -i "/$mac/d" $VALID_USER_LOG
 	fi
 }
 
-#ÉèÖÃÓÃ»§ÎªÈÏÖ¤Í¨¹ı
-set_known_flag(){
+#è®¾ç½®ç”¨æˆ·ä¸ºè®¤è¯ä¸­çŠ¶æ€
+set_valid_flag(){
 	local ip=$1
 	local mac=$2
-	local recflag=0
-	if [ -f $KNOWN_USER_LOG ]; then
-		local num=$(grep $mac $KNOWN_USER_LOG | wc -l)
-		if [ $num -ge 1 ]; then
-			recflag=1
-		fi
-	fi
-	if [ $recflag -eq 0 ]; then
-		$IPTABLES -t mangle -A bp_${CFG}_outgoing -s $ip -m mac --mac-source $mac -j MARK --set-mark 0x01
-		$IPTABLES -t mangle -A bp_${CFG}_incoming -d $ip -j ACCEPT
-		echo "$mac $ip $timestamp" >> $KNOWN_USER_LOG
-	fi
+	local timestamp=$(date +%s)
+	clear_valid_flag
+	$IPTABLES -t mangle -A bp_${CFG}_outgoing -s $ip -m mac --mac-source $mac -j MARK --set-mark 0x02
+	$IPTABLES -t mangle -A bp_${CFG}_incoming -d $ip -j ACCEPT
+	echo "$mac $ip $timestamp" >> $VALID_USER_LOG
 }
 
-#Çå³ıÈÏÖ¤Í¨¹ı±êÖ¾
+#æ¸…é™¤è®¤è¯é€šè¿‡æ ‡å¿—
 clear_known_flag(){
 	local ip=$1
 	local mac=$2
-	local recflag=0
+	local LINE i_mac i_ip
 	if [ -f $KNOWN_USER_LOG ]; then
-		local num=$(grep $mac $KNOWN_USER_LOG | wc -l)
-		if [ $num -ge 1 ]; then
-			recflag=1
-		fi
-	fi
-	if [ $recflag -eq 1 ]; then
-		$IPTABLES -t mangle -D bp_${CFG}_outgoing -s $ip -m mac --mac-source $mac -j MARK --set-mark 0x01
-		$IPTABLES -t mangle -D bp_${CFG}_incoming -d $ip -j ACCEPT
+		while read LINE
+		do
+			i_mac=$(echo $LINE | awk -F" " '{print $1}')
+			i_ip=$(echo $LINE | awk -F" " '{print $2}')
+			if [ $i_mac = $mac ]; then
+				$IPTABLES -t mangle -D bp_${CFG}_outgoing -s $i_ip -m mac --mac-source $i_mac -j MARK --set-mark 0x01
+				$IPTABLES -t mangle -D bp_${CFG}_incoming -d $i_ip -j ACCEPT
+			fi
+		done < $KNOWN_USER_LOG
 		sed -i "/$mac/d" $KNOWN_USER_LOG
 	fi
 }
 
-#Ô¶³ÌÑéÖ¤ÊÇ·ñÔÊĞí·ÃÎÊ
+#è®¾ç½®ç”¨æˆ·ä¸ºè®¤è¯é€šè¿‡
+set_known_flag(){
+	local ip=$1
+	local mac=$2
+	local timestamp=$(date +%s)
+	clear_known_flag
+	$IPTABLES -t mangle -A bp_${CFG}_outgoing -s $ip -m mac --mac-source $mac -j MARK --set-mark 0x01
+	$IPTABLES -t mangle -A bp_${CFG}_incoming -d $ip -j ACCEPT
+	echo "$mac $ip $timestamp" >> $KNOWN_USER_LOG
+}
+
+#è¿œç¨‹éªŒè¯æ˜¯å¦å…è®¸è®¿é—®
 proc_iptables(){
 	local ip=$1
 	local mac=$2
 	local authret=$(wget -q -U "${HTTP_USER_AGENT}" -O - "${AUTH_URL}stage=login&gw_address=${GW_ADDRESS}&gw_port=${PORTAL_PORT}&gw_id=${GW_ID}&mac=${mac}" | grep "Auth:" | awk -F " " '{print $2}')
 	if [ $authret -eq 5 ]; then
-		#·şÎñÆ÷·µ»ØÈÏÖ¤ÖĞ
+		#æœåŠ¡å™¨è¿”å›è®¤è¯ä¸­
 		clear_known_flag $ip $mac
 		set_valid_flag $ip $mac
 	elif [ $authret -eq 1 ]; then
-		#·şÎñÆ÷·µ»ØÈÏÖ¤Í¨¹ı
+		#æœåŠ¡å™¨è¿”å›è®¤è¯é€šè¿‡
 		clear_valid_flag $ip $mac
 		set_known_flag $ip $mac
 	else

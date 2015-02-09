@@ -1,19 +1,7 @@
 #!/bin/sh
-#
-# Bash编写的简单的Captive portal中部署在
-# http服务器上的404页面用于处理各种操作
-# 确保默认访问页面为404
-
-# Date    : 2014-12-15
-# Version : 1.0
-# Author  : czhongm <czhongm@gmail.com>
-
-. ../../env.sh
-. /tgrass/portal/libportal.sh
 
 user_ip=$REMOTE_ADDR
 user_mac=$(cat /proc/net/arp | grep $user_ip | awk -F " " '{ print $4 }' )
-timestamp=$(date +%s)
 
 #模拟苹果系统返回success，以使得protal弹出页变成完成
 apple_captive_resp(){
@@ -51,7 +39,7 @@ elif [ $HTTP_HOST = "${GW_ADDRESS}:${PORTAL_PORT}" ]; then
 	apple_captive_resp
 else
 	if [ -f $VALID_USER_LOG ]; then
-		local num=$(grep $user_mac $VALID_USER_LOG | wc -l)
+		local num=$(grep "$user_mac $user_ip" $VALID_USER_LOG | wc -l)
 		if [ $num -gt 0 ]; then
 			local apple_captive_host="www.apple.com|www.appleiphonecell.com|captive.apple.com|www.itools.info|www.ibook.info|www.airport.us|www.thinkdifferent.us"
 			case $apple_captive_host in 
