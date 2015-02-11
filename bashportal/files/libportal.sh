@@ -30,12 +30,13 @@ clear_valid_flag(){
 set_valid_flag(){
 	local mac=$1
 	local ip=$2
+	local timestamp=$(date +%s)
 	clear_valid_flag $mac $ip
 	local num=$(grep "$mac $ip" $VALID_USER_LOG | wc -l)
 	if [ $num -le 0 ]; then
 		$IPTABLES -t mangle -A bp_${CFG}_outgoing -s $ip -m mac --mac-source $mac -j MARK --set-mark 0x02
 		$IPTABLES -t mangle -A bp_${CFG}_incoming -d $ip -j ACCEPT
-		echo "$mac $ip" >> $VALID_USER_LOG
+		echo "$mac $ip $timestamp" >> $VALID_USER_LOG
 	fi
 }
 

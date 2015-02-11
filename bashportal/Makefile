@@ -37,7 +37,7 @@ define Package/BashPortal/install
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_DATA) ./files/bashportal.conf $(1)/etc/config/bashportal
 	$(INSTALL_DIR) $(1)/etc/init.d
-    $(INSTALL_BIN) ./files/bashportal.init $(1)/etc/init.d/bashportal
+	$(INSTALL_BIN) ./files/bashportal.init $(1)/etc/init.d/bashportal
 	$(INSTALL_DIR) $(1)/etc
 	$(INSTALL_DATA) ./files/trustip $(1)/etc/trustip
 	$(INSTALL_DATA) ./files/trustmac $(1)/etc/trustmac
