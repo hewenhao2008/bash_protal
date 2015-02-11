@@ -11,6 +11,9 @@ PKG_NAME:=BashPortal
 PKG_VERSION:=$(shell git --git-dir=$(CURDIR)/../.git log -1 --pretty="%ci %h" | awk '{ print $$1 "-" $$4 }')
 PKG_MAINTAINER:=czhongm <czhongm@gmail.com>
 PKG_LICENSE:=GPL-2.0
+PKG_LICENSE_FILES:=
+
+PKG_BUILD_PARALLEL:=1
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -27,6 +30,9 @@ endef
 
 define Package/BashPortal/conffiles
 /etc/config/bashportal
+endef
+
+define Build/Compile
 endef
 
 define Package/BashPortal/install
