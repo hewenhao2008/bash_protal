@@ -30,11 +30,28 @@ start_instance(){
 	config_get auth_url "$cfg" auth_url
 	config_get welcome_url "$cfg" welcome_url
 
+	local flag
+	flag=$(cat /tmp/portal/$cfg/flag 2>/dev/null)
+	if [ $flag -eq 1 ]; then
+		echo "BashPortal $cfg intstance already started!"
+		return 1
+	fi
+	
 	validlog="/tmp/portal/$cfg/validate.log"
 	knownlog="/tmp/portal/$cfg/known.log"
-	ip=$(ifconfig $interface | grep inet | cut -d : -f 2 | cut -d " " -f 1)
-	gw_address=$(ifconfig $interface | grep inet | cut -d : -f 2 | cut -d " " -f 1)
-	gw_mac=$(ifconfig $interface | grep HWaddr | awk -F " " '{ print $5 }')
+	for i in {1..60}
+	do
+		gw_address=$(ifconfig $interface | grep inet | cut -d : -f 2 | cut -d " " -f 1)
+		if [ ! -z $gw_address ]; then
+			break
+		else
+			sleep 5
+		fi
+	done
+	if [ -z $gw_address ]; then
+		return 1
+	fi
+	gw_mac=$(cat /sys/class/net/$interface/address)
 	gw_id=$(echo $gw_mac | awk -F ":" '{ print tolower($1$2$3$4$5$6) }')
 	
 #生成所需文件	
@@ -59,7 +76,7 @@ GW_ID="$gw_id"
 	
 EOF
 
-	cat /tmp/portal/$cfg/env.sh >> /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
+	cat /tmp/portal/$cfg/env.sh > /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
 	grep -Ev "^$|^#.*$" /tgrass/portal/libportal.sh >> /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
 	grep -Ev "^$|^#.*$" /tgrass/portal/bashportal.cgi >> /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
 	chmod 777 /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
@@ -82,7 +99,7 @@ EOF
 	$IPTABLES -t nat -N bp_${cfg}_validate
 
 	$IPTABLES -t nat -A PREROUTING -i $interface -j bp_${cfg}_outgoing
-	$IPTABLES -t nat -A bp_${cfg}_outgoing -d $ip -j bp_${cfg}_wifi_to_router
+	$IPTABLES -t nat -A bp_${cfg}_outgoing -d $gw_address -j bp_${cfg}_wifi_to_router
 	$IPTABLES -t nat -A bp_${cfg}_wifi_to_router -j ACCEPT
 	$IPTABLES -t nat -A bp_${cfg}_outgoing -j bp_${cfg}_wifi_to_internet
 	$IPTABLES -t nat -A bp_${cfg}_wifi_to_internet -m mark --mark 0x01 -j ACCEPT
@@ -215,56 +232,65 @@ EOF
 	
 	procd_close_instance
 	
+	echo 1 > /tmp/portal/$cfg/flag
+	
+	return 0
 }
 
 stop_instance(){
 	local cfg="$1"
 	local interface
+	local flag
 	config_get interface "$cfg" interface 'br-lan'
-
-	$IPTABLES -t mangle -D PREROUTING -i $interface -j bp_${cfg}_outgoing
-	$IPTABLES -t mangle -D PREROUTING -i $interface -j bp_${cfg}_trusted
-	$IPTABLES -t mangle -D POSTROUTING -o $interface -j bp_${cfg}_incoming
-	$IPTABLES -t mangle -F bp_${cfg}_trusted
-	$IPTABLES -t mangle -F bp_${cfg}_outgoing
-	$IPTABLES -t mangle -F bp_${cfg}_incoming
-	$IPTABLES -t mangle -X bp_${cfg}_trusted
-	$IPTABLES -t mangle -X bp_${cfg}_outgoing
-	$IPTABLES -t mangle -X bp_${cfg}_incoming
-
-	$IPTABLES -t nat -D PREROUTING -i $interface -j bp_${cfg}_outgoing
-	$IPTABLES -t nat -F bp_${cfg}_outgoing
-	$IPTABLES -t nat -F bp_${cfg}_wifi_to_router
-	$IPTABLES -t nat -F bp_${cfg}_wifi_to_internet
-	$IPTABLES -t nat -F bp_${cfg}_global
-	$IPTABLES -t nat -F bp_${cfg}_unknow
-	$IPTABLES -t nat -F bp_${cfg}_authserver
-	$IPTABLES -t nat -F bp_${cfg}_validate
-	$IPTABLES -t nat -X bp_${cfg}_outgoing
-	$IPTABLES -t nat -X bp_${cfg}_wifi_to_router
-	$IPTABLES -t nat -X bp_${cfg}_wifi_to_internet
-	$IPTABLES -t nat -X bp_${cfg}_global
-	$IPTABLES -t nat -X bp_${cfg}_unknow
-	$IPTABLES -t nat -X bp_${cfg}_authserver
-	$IPTABLES -t nat -X bp_${cfg}_validate
-
-	$IPTABLES -t filter -D FORWARD -i $interface -j bp_${cfg}_wifi_to_internet
-	$IPTABLES -t filter -F bp_${cfg}_wifi_to_internet
-	$IPTABLES -t filter -F bp_${cfg}_global
-	$IPTABLES -t filter -F bp_${cfg}_unknow
-	$IPTABLES -t filter -F bp_${cfg}_know
-	$IPTABLES -t filter -F bp_${cfg}_lock
-	$IPTABLES -t filter -F bp_${cfg}_authserver
-	$IPTABLES -t filter -F bp_${cfg}_validate
-	$IPTABLES -t filter -X bp_${cfg}_wifi_to_internet
-	$IPTABLES -t filter -X bp_${cfg}_global
-	$IPTABLES -t filter -X bp_${cfg}_unknow
-	$IPTABLES -t filter -X bp_${cfg}_know
-	$IPTABLES -t filter -X bp_${cfg}_lock
-	$IPTABLES -t filter -X bp_${cfg}_authserver
-	$IPTABLES -t filter -X bp_${cfg}_validate
 	
-#	rm /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
+	flag=$(cat /tmp/portal/$cfg/flag 2>/dev/null)
+	if [ $flag -eq 1 ]; then
+
+		$IPTABLES -t mangle -D PREROUTING -i $interface -j bp_${cfg}_outgoing
+		$IPTABLES -t mangle -D PREROUTING -i $interface -j bp_${cfg}_trusted
+		$IPTABLES -t mangle -D POSTROUTING -o $interface -j bp_${cfg}_incoming
+		$IPTABLES -t mangle -F bp_${cfg}_trusted
+		$IPTABLES -t mangle -F bp_${cfg}_outgoing
+		$IPTABLES -t mangle -F bp_${cfg}_incoming
+		$IPTABLES -t mangle -X bp_${cfg}_trusted
+		$IPTABLES -t mangle -X bp_${cfg}_outgoing
+		$IPTABLES -t mangle -X bp_${cfg}_incoming
+
+		$IPTABLES -t nat -D PREROUTING -i $interface -j bp_${cfg}_outgoing
+		$IPTABLES -t nat -F bp_${cfg}_outgoing
+		$IPTABLES -t nat -F bp_${cfg}_wifi_to_router
+		$IPTABLES -t nat -F bp_${cfg}_wifi_to_internet
+		$IPTABLES -t nat -F bp_${cfg}_global
+		$IPTABLES -t nat -F bp_${cfg}_unknow
+		$IPTABLES -t nat -F bp_${cfg}_authserver
+		$IPTABLES -t nat -F bp_${cfg}_validate
+		$IPTABLES -t nat -X bp_${cfg}_outgoing
+		$IPTABLES -t nat -X bp_${cfg}_wifi_to_router
+		$IPTABLES -t nat -X bp_${cfg}_wifi_to_internet
+		$IPTABLES -t nat -X bp_${cfg}_global
+		$IPTABLES -t nat -X bp_${cfg}_unknow
+		$IPTABLES -t nat -X bp_${cfg}_authserver
+		$IPTABLES -t nat -X bp_${cfg}_validate
+
+		$IPTABLES -t filter -D FORWARD -i $interface -j bp_${cfg}_wifi_to_internet
+		$IPTABLES -t filter -F bp_${cfg}_wifi_to_internet
+		$IPTABLES -t filter -F bp_${cfg}_global
+		$IPTABLES -t filter -F bp_${cfg}_unknow
+		$IPTABLES -t filter -F bp_${cfg}_know
+		$IPTABLES -t filter -F bp_${cfg}_lock
+		$IPTABLES -t filter -F bp_${cfg}_authserver
+		$IPTABLES -t filter -F bp_${cfg}_validate
+		$IPTABLES -t filter -X bp_${cfg}_wifi_to_internet
+		$IPTABLES -t filter -X bp_${cfg}_global
+		$IPTABLES -t filter -X bp_${cfg}_unknow
+		$IPTABLES -t filter -X bp_${cfg}_know
+		$IPTABLES -t filter -X bp_${cfg}_lock
+		$IPTABLES -t filter -X bp_${cfg}_authserver
+		$IPTABLES -t filter -X bp_${cfg}_validate
+		
+	#	rm /tmp/portal/$cfg/www/cgi-bin/bashportal.cgi
+		echo 0 > /tmp/portal/$cfg/flag
+	fi
 }
 
 service_triggers(){
