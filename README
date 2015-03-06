@@ -1,2 +1,13 @@
 利用shell脚本语言实现路由器认证
 iptables + uhttpd + shell cgi
+
+怎样测试
+
+在"feeds.conf"中添加一个feed:
+src-git bashportal https://github.com/tgrass/bash_protal.git
+
+安装Bashportal包:
+
+./scripts/feeds update
+./scripts/feeds install bashportal
+在menuconfig中勾选bashportal包并编译新固件。
